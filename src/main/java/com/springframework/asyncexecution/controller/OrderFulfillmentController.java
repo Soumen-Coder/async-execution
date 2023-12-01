@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.concurrent.CompletableFuture;
+
 @RestController
 @RequestMapping("/orders")
 public class OrderFulfillmentController {
@@ -19,13 +21,31 @@ public class OrderFulfillmentController {
 
     @PostMapping
     public ResponseEntity<Order> processOrder(@RequestBody Order order) throws InterruptedException {
-        orderFulfillmentService.processOrder(order); //synchronous
-        // asynchronous
-        orderFulfillmentService.notifyUser(order);
-        orderFulfillmentService.assignVendor(order);
-        orderFulfillmentService.packaging(order);
-        orderFulfillmentService.assignDeliveryPartner(order);
-        orderFulfillmentService.assignTrailerAndDispatch(order);
-        return ResponseEntity.ok(order);
+        // Initial synchronous processing (up to payment)
+        Order processedOrder = orderFulfillmentService.processOrder(order);
+
+        /* Trigger asynchronous processing for the remaining steps, but this will not be in order
+        CompletableFuture.runAsync(() -> {
+            orderFulfillmentService.notifyUser(processedOrder);
+            orderFulfillmentService.assignVendor(processedOrder);
+            orderFulfillmentService.packaging(processedOrder);
+            orderFulfillmentService.assignDeliveryPartner(processedOrder);
+            orderFulfillmentService.assignTrailerAndDispatch(processedOrder);
+        });*/
+
+        // if we want things to run in order then we have to use the theRun() method
+        CompletableFuture<Void> asyncProcessing = CompletableFuture.completedFuture(null); //manually completed things
+        asyncProcessing
+                .thenRun(() -> orderFulfillmentService.notifyUser(processedOrder))
+                .thenRun(() -> orderFulfillmentService.assignVendor(processedOrder))
+                .thenRun(() -> orderFulfillmentService.packaging(processedOrder))
+                .thenRun(() -> orderFulfillmentService.assignDeliveryPartner(processedOrder))
+                .thenRun(() -> orderFulfillmentService.assignTrailerAndDispatch(processedOrder));
+        // Handle exceptions if needed
+        asyncProcessing.exceptionally(ex -> {
+            ex.printStackTrace();
+            return null;
+        });
+        return ResponseEntity.ok(processedOrder);
     }
 }

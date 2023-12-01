@@ -2,22 +2,16 @@ package com.springframework.asyncexecution.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.annotation.EnableAsync;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 
 @Configuration
-@EnableAsync
+//@EnableAsync
 public class AsyncConfiguration {
     @Bean(name = "asyncTaskExecutor")
-    public Executor asyncTaskExecutor(){
-        ThreadPoolTaskExecutor taskExecutor = new ThreadPoolTaskExecutor();
-        taskExecutor.setCorePoolSize(4);
-        taskExecutor.setQueueCapacity(150);
-        taskExecutor.setMaxPoolSize(4);
-        taskExecutor.setThreadNamePrefix("AsyncThread-");
-        taskExecutor.initialize();
-        return taskExecutor;
+    public Executor asyncTaskExecutor() {
+        return CompletableFuture.delayedExecutor(0, TimeUnit.SECONDS);
     }
 }

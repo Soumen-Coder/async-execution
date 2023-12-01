@@ -2,10 +2,10 @@ package com.springframework.asyncexecution.service;
 
 import com.springframework.asyncexecution.dto.Order;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @Slf4j
@@ -36,42 +36,88 @@ public class OrderFulfillmentService {
     The reasons are simple: The method needs to be public so that it can be proxied.
     And self-invocation doesn't work because it bypasses the proxy and calls the underlying method directly.*/
 
-    public Order processOrder(Order order) throws InterruptedException {
+    /* public CompletableFuture<Order> processOrder(Order order) throws InterruptedException {
          order.setTrackingId(UUID.randomUUID().toString());
-         if(inventoryService.checkProductInventory(order.getProductId())){
-             paymentService.processPayment(order);
-         }else{
-             throw new RuntimeException("Technical issue please retry");
-         }
-         return order;
+         return CompletableFuture.supplyAsync(() -> {
+             if (inventoryService.checkProductInventory(order.getProductId())) {
+                 try {
+                     paymentService.processPayment(order);
+                 } catch (InterruptedException e) {
+                     throw new RuntimeException(e);
+                 }
+             } else {
+                 throw new RuntimeException("Technical issue please retry");
+             }
+             return order;
+         });
+    }*/
+
+    public Order processOrder(Order order) throws InterruptedException {
+        order.setTrackingId(UUID.randomUUID().toString());
+            if (inventoryService.checkProductInventory(order.getProductId())) {
+                try {
+                    paymentService.processPayment(order);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            } else {
+                throw new RuntimeException("Technical issue please retry");
+            }
+            return order;
     }
 
+    //Earlier the below public methods had the @async annotations on them
+    public CompletableFuture<Void> notifyUser(Order order) {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(4000L);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            log.info("Notified to the user " + Thread.currentThread().getName());
+        });
+    }
+    public CompletableFuture<Void> assignVendor(Order order) {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(5000L);
+                log.info("Assign order to vendor " + Thread.currentThread().getName());
+            } catch (InterruptedException e) {
+                throw new RuntimeException("Vendor assignment interrupted", e);
+            }
+        });
+    }
 
-
-    @Async("asyncTaskExecutor") //@Async must be applied to public methods only.
-    public void notifyUser(Order order) throws InterruptedException {
-        Thread.sleep(4000L);
-        log.info("Notified to the user " + Thread.currentThread().getName());
-    }
-    @Async("asyncTaskExecutor")
-    public void assignVendor(Order order) throws InterruptedException {
-        Thread.sleep(5000L);
-        log.info("Assign order to vendor " + Thread.currentThread().getName());
-    }
-    @Async("asyncTaskExecutor")
-    public void packaging(Order order) throws InterruptedException {
-        Thread.sleep(2000L);
-        log.info("Order packaging completed " + Thread.currentThread().getName());
-    }
-    @Async("asyncTaskExecutor")
-    public void assignDeliveryPartner(Order order) throws InterruptedException {
-        Thread.sleep(10000L);
-        log.info("Delivery partner assigned " + Thread.currentThread().getName());
+    public CompletableFuture<Void> packaging(Order order) {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(2000L);
+                log.info("Order packaging completed " + Thread.currentThread().getName());
+            } catch (InterruptedException e) {
+                throw new RuntimeException("Packaging interrupted", e);
+            }
+        });
     }
 
-    @Async("asyncTaskExecutor")
-    public void assignTrailerAndDispatch(Order order) throws InterruptedException {
-        Thread.sleep(3000L);
-        log.info("Trailer assigned and Order dispatched " + Thread.currentThread().getName());
+    public CompletableFuture<Void> assignDeliveryPartner(Order order) {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(10000L);
+                log.info("Delivery partner assigned " + Thread.currentThread().getName());
+            } catch (InterruptedException e) {
+                throw new RuntimeException("Delivery partner assignment interrupted", e);
+            }
+        });
+    }
+
+    public CompletableFuture<Void> assignTrailerAndDispatch(Order order) {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(3000L);
+                log.info("Trailer assigned and Order dispatched " + Thread.currentThread().getName());
+            } catch (InterruptedException e) {
+                throw new RuntimeException("Trailer assignment interrupted", e);
+            }
+        });
     }
 }
